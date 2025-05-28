@@ -13,24 +13,55 @@ int pos = 0;
 
 float accX, accY, accZ; // 加速度の値を格納する変数
 
+// 最大加速度の向きを判定する関数
+const char* getMaxAccelAxis(float& maxAccel) {
+  maxAccel = abs(accX);
+  const char* axis = "X";
+  if (abs(accY) > maxAccel) {
+    maxAccel = abs(accY);
+    axis = "Y";
+  }
+  if (abs(accZ) > maxAccel) {
+    maxAccel = abs(accZ);
+    axis = "Z";
+  }
+  return axis;
+}
+
+// 最大加速度の向きを画面に表示する関数
+void displayMaxAccel(const char* axis, float maxAccel) {
+  M5.Display.clear();
+  M5.Display.setCursor(0, 0);
+  M5.Display.printf("Max Axis: %s\nAccel: %.2f\n", axis, maxAccel);
+}
+
+// サーボモータを動作させる関数
+void moveServo() {
+  for (pos = 0; pos <= 90; pos += 1) { 
+    servo1.write(pos);
+    delay(30);    
+  }
+
+  delay(2000);
+
+  for (pos = 90; pos >= 0; pos -= 1) {
+    servo1.write(pos);
+    delay(30);
+  }
+}
+
 void setup() {
-  // M5Stack初期設定用の構造体を代入
   auto cfg = M5.config();       
-
-  // M5デバイスの初期化
   M5.begin(cfg);                          
-
-  // サーボモータ初期化
   servo1.setPeriodHertz(50);  
   servo1.attach(servo1Pin, minUs, maxUs);
 
-  // IMU初期化
   if (!M5.Imu.begin()) {
     M5.Display.clear();
     M5.Display.setCursor(0, 0);
     M5.Display.println("IMU Init Failed!");
     while (1) {
-      delay(1000); // 初期化失敗時は停止
+      delay(1000);
     }
   }
 }
@@ -42,38 +73,15 @@ void loop() {
   M5.Imu.getAccel(&accX, &accY, &accZ);
 
   // 最大加速度の向きを判定
-  float maxAccel = abs(accX);
-  const char* axis = "X";
-  if (abs(accY) > maxAccel) {
-    maxAccel = abs(accY);
-    axis = "Y";
-  }
-  if (abs(accZ) > maxAccel) {
-    maxAccel = abs(accZ);
-    axis = "Z";
-  }
+  float maxAccel;
+  const char* axis = getMaxAccelAxis(maxAccel);
 
   // 最大加速度の向きを画面に表示
-  M5.Display.clear();
-  M5.Display.setCursor(0, 0);
-  M5.Display.printf("Max Axis: %s\nAccel: %.2f\n", axis, maxAccel);
+  displayMaxAccel(axis, maxAccel);
 
-  // 最大加速度の向きがZ軸かつ正の値の場合にサーボを動かす
+  // 最大加速度の向きがZ軸かつ正の値ではない場合にサーボを動かす
   if (!(axis == "Z" && accZ > 0)) {
-    // サーボモータを0-90°まで1°ずつスイープする。
-    for (pos = 0; pos <= 90; pos += 1) { 
-      servo1.write(pos);
-      delay(30);    
-    }
-
-    // 1秒待機
-    delay(2000);
-
-    // サーボモータを90°-0°まで1°ずつスイープする。
-    for (pos = 90; pos >= 0; pos -= 1) {
-      servo1.write(pos);
-      delay(30);
-    }
+    moveServo();
   }
 
   delay(5000); // 画面更新間隔
