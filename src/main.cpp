@@ -31,7 +31,7 @@ void loop() {
     // サーボモータを0-90°まで1°ずつスイープする。
     for (pos = 0; pos <= 90; pos += 1) { 
       servo1.write(pos);
-      delay(5);    
+      delay(10);    
     }
 
     // 1秒待機
@@ -40,7 +40,7 @@ void loop() {
     // サーボモータを90°-0°まで1°ずつスイープする。
     for (pos = 90; pos >= 0; pos -= 1) {
       servo1.write(pos);
-      delay(5);
+      delay(10);
     }
   }
 
