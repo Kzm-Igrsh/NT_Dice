@@ -2,7 +2,7 @@
 #include <ESP32Servo.h>
 
 Servo servo1; // サーボオブジェクト作成
-int servo1Pin = 5; //ピンG2を指定
+int servo1Pin = 5; //ピンG5を指定
 
 // サーボモータ設定
 int minUs = 500;
@@ -26,21 +26,23 @@ void setup() {
 void loop() {
   M5.update();
 
-//ボタンを押した時の動作
+  // ボタンを押した時の動作
   if (M5.BtnA.wasPressed()) {
-    //サーボモータを0-180°まで1°ずつスイープする。
+    // サーボモータを0-90°まで1°ずつスイープする。
     for (pos = 0; pos <= 90; pos += 1) { 
       servo1.write(pos);
-      delay(2);    
+      delay(5);    
     }
-  }
-//ボタンを離した時の動作
-  if (M5.BtnA.wasReleased()) {
-    //サーボモータを180°-0°まで1°ずつスイープする。
+
+    // 1秒待機
+    delay(1000);
+
+    // サーボモータを90°-0°まで1°ずつスイープする。
     for (pos = 90; pos >= 0; pos -= 1) {
       servo1.write(pos);
-      delay(2);
+      delay(5);
     }
   }
+
   delay(1);
 }
