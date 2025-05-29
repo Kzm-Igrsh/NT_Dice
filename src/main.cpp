@@ -12,28 +12,10 @@ int maxUs = 2400;
 int pos = 0; 
 
 float accX, accY, accZ; // 加速度の値を格納する変数
-
-// 最大加速度の向きを判定する関数
-const char* getMaxAccelAxis(float& maxAccel) {
-  maxAccel = abs(accX);
-  const char* axis = "X";
-  if (abs(accY) > maxAccel) {
-    maxAccel = abs(accY);
-    axis = "Y";
-  }
-  if (abs(accZ) > maxAccel) {
-    maxAccel = abs(accZ);
-    axis = "Z";
-  }
-  return axis;
-}
-
-// 最大加速度の向きを画面に表示する関数
-void displayMaxAccel(const char* axis, float maxAccel) {
-  M5.Display.clear();
-  M5.Display.setCursor(0, 0);
-  M5.Display.printf("Max Axis: %s\nAccel: %.2f\n", axis, maxAccel);
-}
+float prevMaxAccel = 0; // 前回の最大加速度値
+const char* prevAxis = ""; // 前回の最大加速度の向き
+unsigned long stableStartTime = 0; // 安定状態の開始時間
+const unsigned long stableDuration = 4000; // 安定状態を維持する時間 (ミリ秒)
 
 // サーボモータを動作させる関数
 void moveServo() {
@@ -48,6 +30,55 @@ void moveServo() {
     servo1.write(pos);
     delay(30);
   }
+}
+
+// 最大加速度の向きを判定する関数
+const char* getMaxAccelAxis(float& maxAccel) {
+  maxAccel = accX;
+  const char* axis = "X";
+
+  if (abs(accY) > abs(maxAccel)) {
+    maxAccel = accY;
+    axis = "Y";
+  }
+  if (abs(accZ) > abs(maxAccel)) {
+    maxAccel = accZ;
+    axis = "Z";
+  }
+
+  return axis;
+}
+
+// 最大加速度の向きを画面に表示する関数
+void displayMaxAccel(const char* axis, float maxAccel) {
+  M5.Display.clear();
+  M5.Display.setCursor(0, 0);
+
+  // 正負を考慮して軸名を表示
+  if (maxAccel < 0) {
+    M5.Display.printf("Max Axis: -%s\nAccel: %.2f\n", axis, maxAccel);
+  } else {
+    M5.Display.printf("Max Axis: %s\nAccel: %.2f\n", axis, maxAccel);
+  }
+}
+
+// 安定状態を判定する関数
+bool isStable(const char* axis) {
+  // 最大加速度の向きが前回と同じか確認
+  if (axis == prevAxis) {
+    if (stableStartTime == 0) {
+      stableStartTime = millis(); // 安定状態の開始時間を記録
+    } else if (millis() - stableStartTime >= stableDuration) {
+      return true; // 安定状態が維持されている
+    }
+  } else {
+    stableStartTime = 0; // 安定状態が崩れた場合、タイマーをリセット
+  }
+
+  // 前回の最大加速度の向きを更新
+  prevAxis = axis;
+
+  return false;
 }
 
 void setup() {
@@ -79,10 +110,12 @@ void loop() {
   // 最大加速度の向きを画面に表示
   displayMaxAccel(axis, maxAccel);
 
-  // 最大加速度の向きがZ軸かつ正の値ではない場合にサーボを動かす
-  if (!(axis == "Z" && accZ > 0)) {
-    moveServo();
+  // 安定状態を判定してサーボを動作
+  if (isStable(axis)) {
+    if (!(axis == "Z" && maxAccel > 0)) {
+      moveServo();
+    }
   }
 
-  delay(5000); // 画面更新間隔
+  delay(100); // 更新間隔
 }
