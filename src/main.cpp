@@ -112,7 +112,7 @@ void loop() {
 
   // 安定状態を判定してサーボを動作
   if (isStable(axis)) {
-    if (!(axis == "Z" && maxAccel > 0)) {
+    if (!(axis == "Z" && maxAccel < 0)) {
       moveServo();
     }
   }
