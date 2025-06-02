@@ -19,14 +19,16 @@ const unsigned long stableDuration = 4000; // 安定状態を維持する時間 
 
 // サーボモータを動作させる関数
 void moveServo() {
-  for (pos = 0; pos <= 90; pos += 1) { 
+  // サーボモータを90°から0°まで1°ずつスイープする
+  for (pos = 90; pos >= 0; pos -= 1) { 
     servo1.write(pos);
     delay(30);    
   }
 
-  delay(2000);
+  delay(2000); // 2秒待機
 
-  for (pos = 90; pos >= 0; pos -= 1) {
+  // サーボモータを0°から90°まで1°ずつスイープする
+  for (pos = 0; pos <= 90; pos += 1) {
     servo1.write(pos);
     delay(30);
   }
