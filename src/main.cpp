@@ -1,123 +1,88 @@
-#include <M5Unified.h> 
+#include <M5Unified.h>
 #include <ESP32Servo.h>
 
-Servo servo1; // サーボオブジェクト作成
-int servo1Pin = 5; //ピンG5を指定
+Servo servo1, servo2, servo3, servo4;
+int servoPins[] = {5, 6, 7, 8};
+int minUs = 500, maxUs = 2400;
 
-// サーボモータ設定
-int minUs = 500;
-int maxUs = 2400;
+float accX, accY, accZ;
+const char* prevAxis = "";
+unsigned long stableStartTime = 0;
+const unsigned long stableDuration = 4000;
 
-//サーボモータ角度
-int pos = 0; 
+/* ★1: 個別角度対応・同期移動関数 ------------- */
+void moveServosTogether(const int fromDeg[4], const int toDeg[4],
+                        uint16_t stepDelay = 30) {
+  int maxDelta = 0;
+  for (int i = 0; i < 4; ++i)
+    maxDelta = max(maxDelta, abs(toDeg[i] - fromDeg[i]));
 
-float accX, accY, accZ; // 加速度の値を格納する変数
-float prevMaxAccel = 0; // 前回の最大加速度値
-const char* prevAxis = ""; // 前回の最大加速度の向き
-unsigned long stableStartTime = 0; // 安定状態の開始時間
-const unsigned long stableDuration = 4000; // 安定状態を維持する時間 (ミリ秒)
-
-// サーボモータを動作させる関数
-void moveServo() {
-  // サーボモータを90°から0°まで1°ずつスイープする
-  for (pos = 90; pos >= 0; pos -= 1) { 
-    servo1.write(pos);
-    delay(30);    
-  }
-
-  delay(2000); // 2秒待機
-
-  // サーボモータを0°から90°まで1°ずつスイープする
-  for (pos = 0; pos <= 90; pos += 1) {
-    servo1.write(pos);
-    delay(30);
+  for (int s = 0; s <= maxDelta; ++s) {
+    servo1.write(fromDeg[0] + (toDeg[0] - fromDeg[0]) * s / maxDelta);
+    servo2.write(fromDeg[1] + (toDeg[1] - fromDeg[1]) * s / maxDelta);
+    servo3.write(fromDeg[2] + (toDeg[2] - fromDeg[2]) * s / maxDelta);
+    servo4.write(fromDeg[3] + (toDeg[3] - fromDeg[3]) * s / maxDelta);
+    delay(stepDelay);
   }
 }
 
-// 最大加速度の向きを判定する関数
 const char* getMaxAccelAxis(float& maxAccel) {
-  maxAccel = accX;
-  const char* axis = "X";
-
-  if (abs(accY) > abs(maxAccel)) {
-    maxAccel = accY;
-    axis = "Y";
-  }
-  if (abs(accZ) > abs(maxAccel)) {
-    maxAccel = accZ;
-    axis = "Z";
-  }
-
+  maxAccel = accX; const char* axis = "X";
+  if (abs(accY) > abs(maxAccel)) { maxAccel = accY; axis = "Y"; }
+  if (abs(accZ) > abs(maxAccel)) { maxAccel = accZ; axis = "Z"; }
   return axis;
 }
 
-// 最大加速度の向きを画面に表示する関数
 void displayMaxAccel(const char* axis, float maxAccel) {
-  M5.Display.clear();
-  M5.Display.setCursor(0, 0);
-
-  // 正負を考慮して軸名を表示
-  if (maxAccel < 0) {
+  M5.Display.clear(); M5.Display.setCursor(0, 0);
+  if (maxAccel < 0)
     M5.Display.printf("Max Axis: -%s\nAccel: %.2f\n", axis, maxAccel);
-  } else {
+  else
     M5.Display.printf("Max Axis: %s\nAccel: %.2f\n", axis, maxAccel);
-  }
 }
 
-// 安定状態を判定する関数
 bool isStable(const char* axis) {
-  // 最大加速度の向きが前回と同じか確認
   if (axis == prevAxis) {
-    if (stableStartTime == 0) {
-      stableStartTime = millis(); // 安定状態の開始時間を記録
-    } else if (millis() - stableStartTime >= stableDuration) {
-      return true; // 安定状態が維持されている
-    }
-  } else {
-    stableStartTime = 0; // 安定状態が崩れた場合、タイマーをリセット
-  }
-
-  // 前回の最大加速度の向きを更新
+    if (stableStartTime == 0) stableStartTime = millis();
+    else if (millis() - stableStartTime >= stableDuration) return true;
+  } else stableStartTime = 0;
   prevAxis = axis;
-
   return false;
 }
 
 void setup() {
-  auto cfg = M5.config();       
-  M5.begin(cfg);                          
-  servo1.setPeriodHertz(50);  
-  servo1.attach(servo1Pin, minUs, maxUs);
+  auto cfg = M5.config();  M5.begin(cfg);
+  servo1.setPeriodHertz(50); servo1.attach(servoPins[0], minUs, maxUs);
+  servo2.setPeriodHertz(50); servo2.attach(servoPins[1], minUs, maxUs);
+  servo3.setPeriodHertz(50); servo3.attach(servoPins[2], minUs, maxUs);
+  servo4.setPeriodHertz(50); servo4.attach(servoPins[3], minUs, maxUs);
 
   if (!M5.Imu.begin()) {
-    M5.Display.clear();
-    M5.Display.setCursor(0, 0);
-    M5.Display.println("IMU Init Failed!");
-    while (1) {
-      delay(1000);
-    }
+    M5.Display.clear(); M5.Display.setCursor(0, 0);
+    M5.Display.println("IMU Init Failed!"); while (1) delay(1000);
   }
 }
 
 void loop() {
   M5.update();
-
-  // IMUから加速度を取得
   M5.Imu.getAccel(&accX, &accY, &accZ);
 
-  // 最大加速度の向きを判定
   float maxAccel;
   const char* axis = getMaxAccelAxis(maxAccel);
-
-  // 最大加速度の向きを画面に表示
   displayMaxAccel(axis, maxAccel);
 
-  // 安定状態を判定してサーボを動作
   if (isStable(axis)) {
     if (!(axis == "Z" && maxAccel < 0)) {
-      moveServo();
+
+      /* ★2: 好きな目標角度をここで指定 ------------- */
+      int startDeg[4] = {90, 90, 90, 90};     // 行きの基準
+      int goalDeg [4] = { 0, 0, 0, 0};     // 個別ターゲット
+
+      /* ★3: 行って → 待って → 戻る ------------- */
+      moveServosTogether(startDeg, goalDeg, 30);  // 行き
+      delay(2000);                                // 2 秒待機
+      moveServosTogether(goalDeg, startDeg, 30);  // 戻り
     }
   }
-
-  delay(100); // 更新間隔
+  delay(100);  // 更新間隔
 }
