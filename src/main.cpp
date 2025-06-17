@@ -1,79 +1,65 @@
 #include <M5Unified.h>
 #include <ESP32Servo.h>
 
-Servo servo1, servo2, servo3, servo4;
-int servoPins[] = {5, 6, 7, 8};
-int minUs = 500, maxUs = 2400;
+Servo sv1, sv2, sv3, sv4;
+constexpr int pins[4] = {5, 6, 7, 8};
+constexpr int minUs = 500, maxUs = 2400;
 
-float accX, accY, accZ;
-const char* prevAxis = "";
-unsigned long stableStartTime = 0;
-const unsigned long stableDuration = 4000;
+float ax, ay, az;
+const char* prevA = "";
+unsigned long stTime = 0;
+constexpr unsigned long stDur = 4000;
 
-void moveServosOneByOne(const int fromDeg[4], const int toDeg[4], uint16_t stepDelay = 30) {
-  Servo* sv[4] = {&servo1, &servo2, &servo3, &servo4};
+void moveOneByOne(const int fromDeg[4], const int toDeg[4], const uint16_t dly[4]) {
+  Servo* s[4] = {&sv1, &sv2, &sv3, &sv4};
   for (int i = 0; i < 4; ++i) {
     int step = (toDeg[i] > fromDeg[i]) ? 1 : -1;
-    for (int pos = fromDeg[i]; pos != toDeg[i] + step; pos += step) {
-      sv[i]->write(pos);
-      delay(stepDelay);
+    for (int p = fromDeg[i]; p != toDeg[i] + step; p += step) {
+      s[i]->write(p);
+      delay(dly[i]);
     }
     delay(100);
   }
 }
 
-const char* getMaxAccelAxis(float& maxAccel) {
-  maxAccel = accX;
-  const char* axis = "X";
-  if (abs(accY) > abs(maxAccel)) { maxAccel = accY; axis = "Y"; }
-  if (abs(accZ) > abs(maxAccel)) { maxAccel = accZ; axis = "Z"; }
-  return axis;
+const char* maxAxis(float& m) {
+  m = ax; const char* a = "X";
+  if (abs(ay) > abs(m)) { m = ay; a = "Y"; }
+  if (abs(az) > abs(m)) { m = az; a = "Z"; }
+  return a;
 }
 
-void displayMaxAccel(const char* axis, float maxAccel) {
-  M5.Display.clear();
-  M5.Display.setCursor(0, 0);
-  if (maxAccel < 0) M5.Display.printf("Max Axis: -%s\nAccel: %.2f\n", axis, maxAccel);
-  else              M5.Display.printf("Max Axis: %s\nAccel: %.2f\n", axis, maxAccel);
-}
-
-bool isStable(const char* axis) {
-  if (axis == prevAxis) {
-    if (stableStartTime == 0) stableStartTime = millis();
-    else if (millis() - stableStartTime >= stableDuration) return true;
-  } else {
-    stableStartTime = 0;
-  }
-  prevAxis = axis;
+bool stable(const char* a) {
+  if (a == prevA) {
+    if (!stTime) stTime = millis();
+    else if (millis() - stTime >= stDur) return true;
+  } else stTime = 0;
+  prevA = a;
   return false;
 }
 
 void setup() {
-  auto cfg = M5.config();
-  M5.begin(cfg);
-
-  servo1.setPeriodHertz(50); servo1.attach(servoPins[0], minUs, maxUs);
-  servo2.setPeriodHertz(50); servo2.attach(servoPins[1], minUs, maxUs);
-  servo3.setPeriodHertz(50); servo3.attach(servoPins[2], minUs, maxUs);
-  servo4.setPeriodHertz(50); servo4.attach(servoPins[3], minUs, maxUs);
-
-  if (!M5.Imu.begin()) { while (1) delay(1000); }
+  auto cfg = M5.config(); M5.begin(cfg);
+  sv1.setPeriodHertz(50); sv1.attach(pins[0], minUs, maxUs);
+  sv2.setPeriodHertz(50); sv2.attach(pins[1], minUs, maxUs);
+  sv3.setPeriodHertz(50); sv3.attach(pins[2], minUs, maxUs);
+  sv4.setPeriodHertz(50); sv4.attach(pins[3], minUs, maxUs);
+  if (!M5.Imu.begin()) while (1) delay(1000);
 }
 
 void loop() {
   M5.update();
-  M5.Imu.getAccel(&accX, &accY, &accZ);
+  M5.Imu.getAccel(&ax, &ay, &az);
 
-  float maxAccel;
-  const char* axis = getMaxAccelAxis(maxAccel);
-  displayMaxAccel(axis, maxAccel);
+  float m; const char* a = maxAxis(m);
 
-  if (isStable(axis) && !(axis == "Z" && maxAccel < 0)) {
-    int startDeg[4] = {90, 80, 82, 85};
-    int goalDeg[4]  = {0,  0,  0,  0};
-    moveServosOneByOne(startDeg, goalDeg, 30);
+  if (stable(a) && !(a == "Z" && m < 0)) {
+    int start[4] = {80, 80, 82, 80};
+    int goal[4]  = { 0,  0,  0,  0};
+    uint16_t spd[4] = {10, 10, 10, 10};  // pin5のみ速い
+    moveOneByOne(start, goal, spd);
     delay(2000);
-    moveServosOneByOne(goalDeg, startDeg, 30);
+    moveOneByOne(goal, start, spd);
   }
   delay(100);
 }
