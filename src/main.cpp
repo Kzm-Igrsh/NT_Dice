@@ -40,11 +40,20 @@ bool stable(const char* a) {
 
 void setup() {
   auto cfg = M5.config(); M5.begin(cfg);
+
+  // ★ 画面初期化（大きめフォントに）
+  M5.Display.setTextSize(2);
+  M5.Display.setCursor(0, 0);
+
   sv1.setPeriodHertz(50); sv1.attach(pins[0], minUs, maxUs);
   sv2.setPeriodHertz(50); sv2.attach(pins[1], minUs, maxUs);
   sv3.setPeriodHertz(50); sv3.attach(pins[2], minUs, maxUs);
   sv4.setPeriodHertz(50); sv4.attach(pins[3], minUs, maxUs);
-  if (!M5.Imu.begin()) while (1) delay(1000);
+
+  if (!M5.Imu.begin()) {
+    M5.Display.println("IMU Init Failed!");
+    while (1) delay(1000);
+  }
 }
 
 void loop() {
@@ -53,10 +62,15 @@ void loop() {
 
   float m; const char* a = maxAxis(m);
 
+  // ★ ここで画面更新：軸名だけを表示
+  M5.Display.clear();
+  M5.Display.setCursor(0, 0);
+  M5.Display.printf("Max: %s", a);
+
   if (stable(a) && !(a == "Z" && m < 0)) {
-    int start[4] = {80, 80, 82, 80};
+    int start[4] = {81, 81, 82, 80};
     int goal[4]  = { 0,  0,  0,  0};
-    uint16_t spd[4] = {10, 10, 10, 10};  // pin5のみ速い
+    uint16_t spd[4] = {10, 10, 10, 10};
     moveOneByOne(start, goal, spd);
     delay(2000);
     moveOneByOne(goal, start, spd);
