@@ -68,7 +68,7 @@ void loop() {
   M5.Display.printf("Max: %s", a);
 
   if (stable(a) && !(a == "Z" && m < 0)) {
-    int start[4] = {81, 81, 82, 80};
+    int start[4] = {81, 81, 80, 80};
     int goal[4]  = { 0,  0,  0,  0};
     uint16_t spd[4] = {10, 10, 10, 10};
     moveOneByOne(start, goal, spd);
